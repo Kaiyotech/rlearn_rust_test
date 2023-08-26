@@ -1,0 +1,13 @@
+torch~=2.0.1+cu118
+redis~=5.0.0
+wandb~=0.15.8
+rlgym-tools
+rlgym~=1.2.0
+numpy~=1.24.4
+gym~=0.26.2
+prettytable
+maturin
+numba~=0.57.1
+trueskill~=0.4.5
+prettytable
+plotly
