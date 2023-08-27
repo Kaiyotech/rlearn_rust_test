@@ -28,6 +28,7 @@ use std::{
     path::PathBuf,
     thread::{self, JoinHandle},
     time::Duration,
+    time::Instant,
 };
 
 mod action_parser;
@@ -36,6 +37,10 @@ use crate::action_parser::NectoAction;
 
 use numpy::{PyReadonlyArray, PyArray, Ix1, IntoPyArray};
 
+use anyhow::Result;
+use tch::{Tensor, kind, nn, nn::Module, nn::OptimizerConfig, Device, nn::init::Init::Kaiming};
+
+
 
 #[pymodule]
 pub fn rlgym_sim_rs_py(_py: Python, m: &PyModule) -> PyResult<()> {
@@ -43,21 +48,14 @@ pub fn rlgym_sim_rs_py(_py: Python, m: &PyModule) -> PyResult<()> {
     Ok(())
 }
 
-//first thing I need
-/*            rlgym_sim_rs_py.make(tick_skip=tick_skip, spawn_opponents=spawn_opponents, team_size=team_size, gravity=1.0,
-                                 boost_consumption=1.0, copy_gamestate_every_step=True, dodge_deadzone=dodge_deadzone,
-                                 terminal_conditions=terminal_conditions, reward_fn=reward_fn, obs_builder=obs_builder,
-                                 action_parser=action_parser, state_setter=DynamicGMSetter(state_setter)) */
+mod network;
 
-// also need reset
-// and also need step
-
-struct GymReturn{
-    obs: Vec<Vec<f32>>,
-    rewards: Vec<f32>,
-    done: bool,
-    info: HashMap<String, f32>
-}
+// struct GymReturn{
+//     obs: Vec<Vec<f32>>,
+//     rewards: Vec<f32>,
+//     done: bool,
+//     info: HashMap<String, f32>
+// }
 
 #[pyclass(unsendable)]
 pub struct GymWrapper {
@@ -121,7 +119,7 @@ impl GymWrapper {
     }
 
     // pub fn step<'py>( &mut self, py: Python<'py>, actions: Vec<Vec<f32>>) -> PyResult<(&'py Vec<PyArray<f32, Ix1>>, Vec<f32>, bool, HashMap<String, f32>)> {
-        pub fn step( &mut self, actions: Vec<Vec<f32>>) -> PyResult<(Vec<Vec<f32>>, Vec<f32>, bool, HashMap<String, f32>)> {
+    pub fn step( &mut self, actions: Vec<Vec<f32>>) -> PyResult<(Vec<Vec<f32>>, Vec<f32>, bool, HashMap<String, f32>)> {
         // let mut gym_return= self.gym.step(actions);
         // let mut obs = Vec::<PyArray<f32, Ix1>>::new();
         // for each_obs in gym_return.0{
@@ -136,4 +134,62 @@ impl GymWrapper {
         Ok(self.gym.step(actions))
     }
 
+    pub fn step_episode(&mut self, seed: Option<u64>) -> PyResult<bool>{//PyResult<(Vec<&Vec<Vec<f32>>>, Vec<f32>, bool, HashMap<String, f32>)> {
+        //use a built in rust network for now
+        // get first action from the reset
+        let start_time = Instant::now();
+        let mut all_obs = Vec::with_capacity(1000);
+        let obs = self.gym.reset(Some(false), seed);
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let net = network::net(&var_store.root());
+        // let mut opt = nn::Adam::default().build(&var_store, 1e-4)?;
+        let mut done = false;
+        let mut steps = 0;
+        let mut all_reward = Vec::with_capacity(1000);
+        while !done{
+            all_obs.push(obs.clone());
+            //let tens_obs: Tensor = Tensor::try_from(obs).expect("error from vector to tensor");
+            let tens_obs = vector_of_vectors_to_tensor(&obs);
+            let actions: Tensor = net.forward(&tens_obs);
+            let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
+            let result = self.gym.step(act_vec);
+            let obs = result.0;
+            all_reward.push(result.1);
+            done = result.2;
+            steps += 1;
+        }
+        let duration = start_time.elapsed();
+        let seconds_elapsed = duration.as_secs_f64();
+        println!("seconds elapsed: {seconds_elapsed}");
+        let fps = (120. * 360.) / seconds_elapsed;
+        println!("fps: {fps} including setting up and init a new network");
+        //return (all_obs, reward, done, result.3);
+        Ok(done)
+    }
+}
+
+
+fn vector_of_vectors_to_tensor(data: &Vec<Vec<f32>>) -> Tensor{
+    let rows = data.len() as i64;
+    let cols = data[0].len() as i64;
+    let ret_ten = Tensor::new().new_empty(&[rows, cols], kind::FLOAT_CPU);
+    for row in data{
+        let ten_row = Tensor::try_from(row).expect("issue with row vector to tensor");
+        let ret_ten = Tensor::cat(&[ret_ten.unsqueeze(0), ten_row], 0);
+    }
+
+    ret_ten
+    // let rows = data.len() as i64;
+    // let cols = data[0].len() as i64;
+    // let flat_data = data.iter().flat_map(|row| row.iter()).cloned().collect::<Vec<_>>();
+    // // Tensor::of_slice(flat_data.as_slice())
+    // // .reshape(&[rows, cols])
+    // // .to_kind(tch::kind::Float)
+    // // Tensor::of_data_size(flat_data.as_slice(), &[rows, cols])
+    // //     .to_kind(kind::Float)
+    // let tensor = Tensor::empty(&[rows, cols], kind::FLOAT_CPU);
+
+    // // Copy the flattened data into the tensor
+    // tensor.copy_(&Tensor::of_slice(&flat_data));
+    // tensor
 }
