@@ -3,7 +3,7 @@ use tch::{nn, nn::Module, nn::OptimizerConfig, Device, nn::init::Init::Kaiming,
     nn::init::{NormalOrUniform::Normal, FanInOut::{FanIn, FanOut}, NonLinearity::ReLU}};
 
 const HIDDEN_NODES: i64 = 256;
-const INPUT_DIM: i64 = 230;
+const INPUT_DIM: i64 = 231;
 const OUTPUT_DIM: i64 = 90;
 
 pub fn net(my_net: &nn::Path) -> impl Module {

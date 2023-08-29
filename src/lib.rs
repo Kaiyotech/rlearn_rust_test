@@ -4,6 +4,7 @@ use pyo3::prelude::*;
 use rlgym_sim_rs::{envs::game_match,
     action_parsers::discrete_act::DiscreteAction,
     conditionals::custom_conditions::CombinedTerminalConditions,
+    conditionals::common_conditions::TimeoutCondition,
     common_values,
     envs,
     gamestates,
@@ -73,7 +74,8 @@ impl GymWrapper {
         copy_gamestate_every_step: Option<bool>) -> Self {
         // these need to be set inside Rust because they're Rust
         let parser = Box::new(NectoAction::new());
-        let terminals = Box::new(CombinedTerminalConditions::new(8));
+        //let terminals = Box::new(CombinedTerminalConditions::new(8));
+        let terminals = Box::new(TimeoutCondition::new(1500));
         let reward_struct_1 = ball_goal_rewards::VelocityBallToGoalReward::new(Some(false), Some(false));
         let reward_struct_2 = player_ball_rewards::VelocityPlayerToBallReward::new(Some(false));
         let reward_fn = Box::new(CombinedReward::new(vec![Box::new(reward_struct_1), Box::new(reward_struct_2)], vec![1.0, 1.0]));
@@ -137,31 +139,38 @@ impl GymWrapper {
     pub fn step_episode(&mut self, seed: Option<u64>) -> PyResult<bool>{//PyResult<(Vec<&Vec<Vec<f32>>>, Vec<f32>, bool, HashMap<String, f32>)> {
         //use a built in rust network for now
         // get first action from the reset
-        let start_time = Instant::now();
-        let mut all_obs = Vec::with_capacity(1000);
-        let obs = self.gym.reset(Some(false), seed);
         let var_store = nn::VarStore::new(Device::Cpu);
         let net = network::net(&var_store.root());
-        // let mut opt = nn::Adam::default().build(&var_store, 1e-4)?;
-        let mut done = false;
+        let start_time = Instant::now();
         let mut steps = 0;
-        let mut all_reward = Vec::with_capacity(1000);
-        while !done{
-            all_obs.push(obs.clone());
-            //let tens_obs: Tensor = Tensor::try_from(obs).expect("error from vector to tensor");
-            let tens_obs = vector_of_vectors_to_tensor(&obs);
-            let actions: Tensor = net.forward(&tens_obs);
-            let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
-            let result = self.gym.step(act_vec);
-            let obs = result.0;
-            all_reward.push(result.1);
-            done = result.2;
-            steps += 1;
+        let mut done = false;
+        let mut all_obs = Vec::with_capacity(160000);
+        let mut all_reward = Vec::with_capacity(160000);
+        for _i in 0..100{
+            done = false;
+            let mut obs = self.gym.reset(Some(false), seed);
+            // let mut opt = nn::Adam::default().build(&var_store, 1e-4)?;
+            
+            while !done{
+                all_obs.push(obs.clone());
+                //let tens_obs: Tensor = Tensor::try_from(obs).expect("error from vector to tensor");
+                //dbg!(&obs);
+                //let tens_obs = vector_of_vectors_to_tensor(&obs);
+                let tens_obs = Tensor::from_slice2(&obs);
+                let actions: Tensor = net.forward(&tens_obs);
+                let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
+                let result = self.gym.step(act_vec);
+                obs = result.0;
+                all_reward.push(result.1);
+                done = result.2;
+                steps += 1;
+            }
+            
         }
         let duration = start_time.elapsed();
         let seconds_elapsed = duration.as_secs_f64();
-        println!("seconds elapsed: {seconds_elapsed}");
-        let fps = (120. * 360.) / seconds_elapsed;
+        println!("{steps} steps in {seconds_elapsed} seconds");
+        let fps = steps as f64 / seconds_elapsed;
         println!("fps: {fps} including setting up and init a new network");
         //return (all_obs, reward, done, result.3);
         Ok(done)
@@ -169,27 +178,29 @@ impl GymWrapper {
 }
 
 
-fn vector_of_vectors_to_tensor(data: &Vec<Vec<f32>>) -> Tensor{
-    let rows = data.len() as i64;
-    let cols = data[0].len() as i64;
-    let ret_ten = Tensor::new().new_empty(&[rows, cols], kind::FLOAT_CPU);
-    for row in data{
-        let ten_row = Tensor::try_from(row).expect("issue with row vector to tensor");
-        let ret_ten = Tensor::cat(&[ret_ten.unsqueeze(0), ten_row], 0);
-    }
+// fn vector_of_vectors_to_tensor(data: &Vec<Vec<f32>>) -> Tensor{
+//     let rows = data.len() as i64;
+//     let cols = data[0].len() as i64;
+//     let mut ret_ten = Tensor::empty([rows, cols], kind::FLOAT_CPU);
+//     for row in data.iter(){
+//         //dbg!(&row);
+//         let ten_row = Tensor::from_slice(row);
+//         dbg!(&ten_row);
+//         ret_ten = Tensor::cat(&[ret_ten.unsqueeze(0), ten_row], 0);
+//     }
 
-    ret_ten
-    // let rows = data.len() as i64;
-    // let cols = data[0].len() as i64;
-    // let flat_data = data.iter().flat_map(|row| row.iter()).cloned().collect::<Vec<_>>();
-    // // Tensor::of_slice(flat_data.as_slice())
-    // // .reshape(&[rows, cols])
-    // // .to_kind(tch::kind::Float)
-    // // Tensor::of_data_size(flat_data.as_slice(), &[rows, cols])
-    // //     .to_kind(kind::Float)
-    // let tensor = Tensor::empty(&[rows, cols], kind::FLOAT_CPU);
+//     ret_ten
+//     // let rows = data.len() as i64;
+//     // let cols = data[0].len() as i64;
+//     // let flat_data = data.iter().flat_map(|row| row.iter()).cloned().collect::<Vec<_>>();
+//     // // Tensor::of_slice(flat_data.as_slice())
+//     // // .reshape(&[rows, cols])
+//     // // .to_kind(tch::kind::Float)
+//     // // Tensor::of_data_size(flat_data.as_slice(), &[rows, cols])
+//     // //     .to_kind(kind::Float)
+//     // let tensor = Tensor::empty(&[rows, cols], kind::FLOAT_CPU);
 
-    // // Copy the flattened data into the tensor
-    // tensor.copy_(&Tensor::of_slice(&flat_data));
-    // tensor
-}
+//     // // Copy the flattened data into the tensor
+//     // tensor.copy_(&Tensor::of_slice(&flat_data));
+//     // tensor
+// }
