@@ -137,22 +137,27 @@ impl GymWrapper {
     }
 
     pub fn step_episode(&mut self, seed: Option<u64>) -> PyResult<bool>{//PyResult<(Vec<&Vec<Vec<f32>>>, Vec<f32>, bool, HashMap<String, f32>)> {
+        //profiling
+        optick::event!();
         //use a built in rust network for now
         // get first action from the reset
+        tch::set_num_threads(1);
         let var_store = nn::VarStore::new(Device::Cpu);
         let net = network::net(&var_store.root());
         let start_time = Instant::now();
         let mut steps = 0;
         let mut done = false;
-        let mut all_obs = Vec::with_capacity(160000);
-        let mut all_reward = Vec::with_capacity(160000);
-        for _i in 0..100{
+        // let mut all_obs = Vec::with_capacity(160000);
+        // let mut all_reward = Vec::with_capacity(160000);
+        for _i in 0..10{
             done = false;
             let mut obs = self.gym.reset(Some(false), seed);
+            optick::event!();
             // let mut opt = nn::Adam::default().build(&var_store, 1e-4)?;
             
             while !done{
-                all_obs.push(obs.clone());
+                optick::event!();
+                // all_obs.push(obs.clone());
                 //let tens_obs: Tensor = Tensor::try_from(obs).expect("error from vector to tensor");
                 //dbg!(&obs);
                 //let tens_obs = vector_of_vectors_to_tensor(&obs);
@@ -161,7 +166,7 @@ impl GymWrapper {
                 let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
                 let result = self.gym.step(act_vec);
                 obs = result.0;
-                all_reward.push(result.1);
+                // all_reward.push(result.1);
                 done = result.2;
                 steps += 1;
             }
@@ -171,7 +176,7 @@ impl GymWrapper {
         let seconds_elapsed = duration.as_secs_f64();
         println!("{steps} steps in {seconds_elapsed} seconds");
         let fps = steps as f64 / seconds_elapsed;
-        println!("fps: {fps} including setting up and init a new network");
+        println!("fps: {fps}");
         //return (all_obs, reward, done, result.3);
         Ok(done)
     }
@@ -204,3 +209,4 @@ impl GymWrapper {
 //     // tensor.copy_(&Tensor::of_slice(&flat_data));
 //     // tensor
 // }
+

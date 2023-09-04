@@ -16,7 +16,7 @@ pub fn net(my_net: &nn::Path) -> impl Module {
                      fan: FanIn,
                     non_linearity: ReLU}),bias:true}))
             .add_fn(|xs| xs.leaky_relu())
-            .add(nn::linear(my_net / "layer1",
+            .add(nn::linear(my_net / "layer2",
                 HIDDEN_NODES,
                 HIDDEN_NODES,
                 nn::LinearConfig{ws_init:Kaiming{dist: Normal,
@@ -25,7 +25,7 @@ pub fn net(my_net: &nn::Path) -> impl Module {
                      fan: FanIn,
                     non_linearity: ReLU}),bias:true}))
             .add_fn(|xs| xs.leaky_relu())
-            .add(nn::linear(my_net / "layer1",
+            .add(nn::linear(my_net / "layer3",
                 HIDDEN_NODES,
                 HIDDEN_NODES,
                 nn::LinearConfig{ws_init:Kaiming{dist: Normal,
@@ -34,7 +34,7 @@ pub fn net(my_net: &nn::Path) -> impl Module {
                      fan: FanIn,
                     non_linearity: ReLU}),bias:true}))
             .add_fn(|xs| xs.leaky_relu())
-            .add(nn::linear(my_net / "layer1",
+            .add(nn::linear(my_net / "layer4",
                 HIDDEN_NODES,
                 OUTPUT_DIM,
                 nn::LinearConfig{ws_init:Kaiming{dist: Normal,
