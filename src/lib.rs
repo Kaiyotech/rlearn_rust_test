@@ -1,4 +1,4 @@
-use pyo3::prelude::*;
+//use pyo3::prelude::*;
 
 //import stuff yo
 use rlgym_sim_rs::{envs::game_match,
@@ -36,18 +36,18 @@ mod action_parser;
 
 use crate::action_parser::NectoAction;
 
-use numpy::{PyReadonlyArray, PyArray, Ix1, IntoPyArray};
+//use numpy::{PyReadonlyArray, PyArray, Ix1, IntoPyArray};
 
-use anyhow::Result;
+//use anyhow::Result;
 use tch::{Tensor, kind, nn, nn::Module, nn::OptimizerConfig, Device, nn::init::Init::Kaiming};
 
 
 
-#[pymodule]
-pub fn rlgym_sim_rs_py(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<GymWrapper>()?;
-    Ok(())
-}
+// #[pymodule]
+// pub fn rlgym_sim_rs_py(_py: Python, m: &PyModule) -> PyResult<()> {
+//     m.add_class::<GymWrapper>()?;
+//     Ok(())
+// }
 
 mod network;
 
@@ -58,16 +58,14 @@ mod network;
 //     info: HashMap<String, f32>
 // }
 
-#[pyclass(unsendable)]
+
 pub struct GymWrapper {
     gym: Gym,
 }
 
-#[pymethods]
 impl GymWrapper {
     #![allow(clippy::too_many_arguments)]
-    #[new]
-    #[pyo3(signature = (team_size, gravity, boost_consumption, tick_skip, dodge_deadzone, seed=123, self_play=true, copy_gamestate_every_step=true))]
+    // #[new]
     /// create the gym wrapper to be used
     // adding a py object here to try and return an array instead for the obs
     pub fn new(team_size: usize, gravity: f32, boost_consumption: f32, tick_skip: usize, mut dodge_deadzone: f32, seed: Option<u64>, self_play: Option<bool>,
@@ -114,14 +112,14 @@ impl GymWrapper {
         GymWrapper { gym }
     }
 
-    pub fn reset(&mut self, seed: Option<u64>) -> PyResult<Vec<Vec<f32>>> {
+    pub fn reset(&mut self, seed: Option<u64>) -> Vec<Vec<f32>> {
         //TODO need to allow the gamestate in the info hash eventually?
         // TODO figure out a way to return an array directly probably
-        Ok(self.gym.reset(Some(false), seed))
+        self.gym.reset(Some(false), seed)
     }
 
     // pub fn step<'py>( &mut self, py: Python<'py>, actions: Vec<Vec<f32>>) -> PyResult<(&'py Vec<PyArray<f32, Ix1>>, Vec<f32>, bool, HashMap<String, f32>)> {
-    pub fn step( &mut self, actions: Vec<Vec<f32>>) -> PyResult<(Vec<Vec<f32>>, Vec<f32>, bool, HashMap<String, f32>)> {
+    pub fn step( &mut self, actions: Vec<Vec<f32>>) -> (Vec<Vec<f32>>, Vec<f32>, bool, HashMap<String, f32>)  {
         // let mut gym_return= self.gym.step(actions);
         // let mut obs = Vec::<PyArray<f32, Ix1>>::new();
         // for each_obs in gym_return.0{
@@ -133,12 +131,12 @@ impl GymWrapper {
         // //     Err(e) => panic!("Error returning step from Rust")
         // // })
         // Ok(result)
-        Ok(self.gym.step(actions))
+        // Ok(self.gym.step(actions))
+        self.gym.step(actions)
     }
 
-    pub fn step_episode(&mut self, seed: Option<u64>) -> PyResult<bool>{//PyResult<(Vec<&Vec<Vec<f32>>>, Vec<f32>, bool, HashMap<String, f32>)> {
-        //profiling
-        optick::event!();
+    pub fn step_episode(&mut self, seed: Option<u64>) -> bool {//PyResult<(Vec<&Vec<Vec<f32>>>, Vec<f32>, bool, HashMap<String, f32>)> {
+      
         //use a built in rust network for now
         // get first action from the reset
         tch::set_num_threads(1);
@@ -153,11 +151,9 @@ impl GymWrapper {
         for _i in 0..10{
             done = false;
             let mut obs = self.gym.reset(Some(false), seed);
-            optick::event!();
             // let mut opt = nn::Adam::default().build(&var_store, 1e-4)?;
             
             while !done{
-                optick::event!();
                 // all_obs.push(obs.clone());
                 //let tens_obs: Tensor = Tensor::try_from(obs).expect("error from vector to tensor");
                 //dbg!(&obs);
@@ -179,7 +175,7 @@ impl GymWrapper {
         let fps = steps as f64 / seconds_elapsed;
         println!("fps: {fps}");
         //return (all_obs, reward, done, result.3);
-        Ok(done)
+        done
     }
 }
 
