@@ -142,6 +142,7 @@ impl GymWrapper {
         //use a built in rust network for now
         // get first action from the reset
         tch::set_num_threads(1);
+        
         let var_store = nn::VarStore::new(Device::Cpu);
         let net = network::net(&var_store.root());
         let start_time = Instant::now();
@@ -162,7 +163,7 @@ impl GymWrapper {
                 //dbg!(&obs);
                 //let tens_obs = vector_of_vectors_to_tensor(&obs);
                 let tens_obs = Tensor::from_slice2(&obs);
-                let actions: Tensor = net.forward(&tens_obs);
+                let actions: Tensor = tch::no_grad(|| net.forward(&tens_obs));
                 let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
                 let result = self.gym.step(act_vec);
                 obs = result.0;
