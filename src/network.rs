@@ -1,6 +1,6 @@
 // use anyhow::Result;
-use tch::{nn, nn::Module, nn::OptimizerConfig, Device, nn::init::Init::Kaiming,
-    nn::init::{NormalOrUniform::Normal, FanInOut::{FanIn, FanOut}, NonLinearity::ReLU}};
+use tch::{nn, nn::Module, nn::init::Init::Kaiming,
+    nn::init::{NormalOrUniform::Normal, FanInOut::{FanIn}, NonLinearity::ReLU}};
 
 const HIDDEN_NODES: i64 = 256;
 const INPUT_DIM: i64 = 231;

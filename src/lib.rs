@@ -1,16 +1,8 @@
 //use pyo3::prelude::*;
 
 //import stuff yo
-use rlgym_sim_rs::{envs::game_match,
-    action_parsers::discrete_act::DiscreteAction,
-    conditionals::custom_conditions::CombinedTerminalConditions,
-    conditionals::common_conditions::TimeoutCondition,
-    common_values,
-    envs,
-    gamestates,
-    gym,
+use rlgym_sim_rs::{conditionals::common_conditions::TimeoutCondition,
     make,
-    math,
     obs_builders::{obs_builder::ObsBuilder,
                     advanced_obs::AdvancedObs,
                 },               
@@ -19,16 +11,11 @@ use rlgym_sim_rs::{envs::game_match,
                        player_ball_rewards},
                        },
     state_setters::random_state::RandomState,
-    gamestates::game_state::GameState,
     gym::Gym,
     };
 //just for measuring speed
 use std::{
     collections::HashMap,
-    iter::zip,
-    path::PathBuf,
-    thread::{self, JoinHandle},
-    time::Duration,
     time::Instant,
 };
 
@@ -39,7 +26,7 @@ use crate::action_parser::NectoAction;
 //use numpy::{PyReadonlyArray, PyArray, Ix1, IntoPyArray};
 
 //use anyhow::Result;
-use tch::{Tensor, kind, nn, nn::Module, nn::OptimizerConfig, Device, nn::init::Init::Kaiming};
+use tch::{Tensor, nn, nn::Module, Device};
 
 
 
@@ -68,8 +55,8 @@ impl GymWrapper {
     // #[new]
     /// create the gym wrapper to be used
     // adding a py object here to try and return an array instead for the obs
-    pub fn new(team_size: usize, gravity: f32, boost_consumption: f32, tick_skip: usize, mut dodge_deadzone: f32, seed: Option<u64>, self_play: Option<bool>,
-        copy_gamestate_every_step: Option<bool>) -> Self {
+    pub fn new(team_size: usize, gravity: f32, boost_consumption: f32, tick_skip: usize, _dodge_deadzone: f32, _seed: Option<u64>, self_play: Option<bool>,
+        _copy_gamestate_every_step: Option<bool>) -> Self {
         // these need to be set inside Rust because they're Rust
         let parser = Box::new(NectoAction::new());
         //let terminals = Box::new(CombinedTerminalConditions::new(8));
@@ -81,7 +68,7 @@ impl GymWrapper {
 
         // these come from Python through params
         let spawn_opponents = self_play.unwrap_or(true);
-        let copy_gamestate_every_step = true; //copy_gamestate_every_step.unwrap_or(true);
+        let _copy_gamestate_every_step = true; //copy_gamestate_every_step.unwrap_or(true);
 
         // this gets created based on other options but obs lives in Rust
         let mut obs_build_vec = Vec::<Box<dyn ObsBuilder + Send>>::new();
