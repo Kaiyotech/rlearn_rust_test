@@ -130,7 +130,7 @@ impl GymWrapper {
         
         let var_store = nn::VarStore::new(Device::Cpu);
         let net = network::net(&var_store.root());
-        let start_time = Instant::now();
+        // let start_time = Instant::now();
         let mut steps = 0;
         let mut done = false;
         // let mut all_obs = Vec::with_capacity(160000);
@@ -141,12 +141,11 @@ impl GymWrapper {
             // let mut opt = nn::Adam::default().build(&var_store, 1e-4)?;
             
             while !done{
-                // all_obs.push(obs.clone());
-                //let tens_obs: Tensor = Tensor::try_from(obs).expect("error from vector to tensor");
-                //dbg!(&obs);
-                //let tens_obs = vector_of_vectors_to_tensor(&obs);
                 let tens_obs = Tensor::from_slice2(&obs);
                 let actions: Tensor = tch::no_grad(|| net.forward(&tens_obs));
+                //let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
+                //let act_vec = vec![vec![10.], vec![10.], vec![10.], vec![10.], vec![10.], vec![10.]];
+                //let actions = Tensor::from_slice2(&act_vec);
                 let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
                 let result = self.gym.step(act_vec);
                 obs = result.0;
@@ -156,11 +155,11 @@ impl GymWrapper {
             }
             
         }
-        let duration = start_time.elapsed();
-        let seconds_elapsed = duration.as_secs_f64();
-        println!("{steps} steps in {seconds_elapsed} seconds");
-        let fps = steps as f64 / seconds_elapsed;
-        println!("fps: {fps}");
+        // let duration = start_time.elapsed();
+        // let seconds_elapsed = duration.as_secs_f64();
+        // println!("{steps} steps in {seconds_elapsed} seconds");
+        // let fps = steps as f64 / seconds_elapsed;
+        // println!("fps: {fps}");
         //return (all_obs, reward, done, result.3);
         done
     }
