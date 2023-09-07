@@ -4,6 +4,7 @@ from torch import set_num_threads
 from datetime import datetime
 from torch.nn import Linear, Sequential, LeakyReLU
 import numpy as np
+from torch.nn.init import xavier_uniform_
 
 env = rlgym_sim_rs_py.GymWrapper(tick_skip=8,
                                  team_size=3,
@@ -14,14 +15,20 @@ env = rlgym_sim_rs_py.GymWrapper(tick_skip=8,
                                  dodge_deadzone=0.5,
                                  seed=123)
 
+actor = Sequential(Linear(231, 256), LeakyReLU(), Linear(256, 256), LeakyReLU(),
+                   Linear(256, 256), LeakyReLU(), Linear(256, 90))
+
+for p in actor.parameters():
+    if p.dim() > 1:
+        xavier_uniform_(p)
+actor.requires_grad_(False)
+
 # start timing here
 overall_start_time = datetime.now()
 iterations = 10
 for _ in range(iterations):
     set_num_threads(1)
-    actor = Sequential(Linear(231, 256), LeakyReLU(), Linear(256, 256), LeakyReLU(),
-                        Linear(256, 256), LeakyReLU(), Linear(256, 90))
-    actor.requires_grad_(False)
+
     done = False
     steps = 0
     start_time = datetime.now()

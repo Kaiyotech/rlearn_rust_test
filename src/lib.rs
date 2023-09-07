@@ -48,6 +48,7 @@ mod network;
 
 pub struct GymWrapper {
     gym: Gym,
+    net: Box<dyn nn::Module>,
 }
 
 impl GymWrapper {
@@ -96,7 +97,9 @@ impl GymWrapper {
             state_setter: state_set, 
         };
         let gym = make::make(game_config);
-        GymWrapper { gym }
+        let var_store = nn::VarStore::new(Device::Cpu);
+        let net = network::net(&var_store.root());
+        GymWrapper { gym , net: Box::new(net)}
     }
 
     pub fn reset(&mut self, seed: Option<u64>) -> Vec<Vec<f32>> {
@@ -124,29 +127,21 @@ impl GymWrapper {
 
     pub fn step_episode(&mut self, seed: Option<u64>) -> bool {//PyResult<(Vec<&Vec<Vec<f32>>>, Vec<f32>, bool, HashMap<String, f32>)> {
       
-        //use a built in rust network for now
-        // get first action from the reset
         tch::set_num_threads(1);
         
-        let var_store = nn::VarStore::new(Device::Cpu);
-        let net = network::net(&var_store.root());
-        // let start_time = Instant::now();
         let mut steps = 0;
         let mut done = false;
-        // let mut all_obs = Vec::with_capacity(160000);
-        // let mut all_reward = Vec::with_capacity(160000);
         for _i in 0..10{
             done = false;
             let mut obs = self.gym.reset(Some(false), seed);
-            // let mut opt = nn::Adam::default().build(&var_store, 1e-4)?;
-            
+            // let tens_obs = Tensor::from_slice2(&obs);
             while !done{
                 let tens_obs = Tensor::from_slice2(&obs);
-                let actions: Tensor = tch::no_grad(|| net.forward(&tens_obs));
-                //let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
-                //let act_vec = vec![vec![10.], vec![10.], vec![10.], vec![10.], vec![10.], vec![10.]];
-                //let actions = Tensor::from_slice2(&act_vec);
+                let actions: Tensor = tch::no_grad(|| self.net.forward(&tens_obs));
                 let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
+                // let act_vec = vec![vec![10.], vec![10.], vec![10.], vec![10.], vec![10.], vec![10.]];
+                // let actions = Tensor::from_slice2(&act_vec);
+                // let act_vec: Vec<Vec<f32>> = Tensor::try_into(actions).expect("error from tensor to vector");
                 let result = self.gym.step(act_vec);
                 obs = result.0;
                 // all_reward.push(result.1);
